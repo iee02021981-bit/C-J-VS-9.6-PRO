@@ -1,0 +1,1316 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0B0F17">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Confluence Journal v9.6 Pro</title>
+
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            gold: {
+              300: '#F5E6B3',
+              400: '#E6C670',
+              500: '#D9A44A',
+              600: '#B88231',
+              700: '#8C5E1E',
+            },
+            dark: {
+              bg: '#0B0F17',
+              card: '#121826',
+              border: '#1E293B',
+              hover: '#1A2333',
+              subtle: '#0F1623'
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- React 18 & Babel CDNs -->
+  <script crossorigin src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script crossorigin src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+
+  <!-- Recharts CDNs -->
+  <script src="https://unpkg.com/prop-types/prop-types.min.js"></script>
+  <script src="https://unpkg.com/recharts@2.10.3/umd/Recharts.js"></script>
+
+  <!-- TradingView Embed Script -->
+  <script type="text/javascript" src="https://s3.tradingview.com/tv.js"></script>
+
+  <!-- Inline Web App Manifest -->
+  <link rel="manifest" href="data:application/json;base64,ewogICJuYW1lIjogIkNvbmZsdWVuY2UgSm91cm5hbCB2OS42IFBybyIsCiAgInNob3J0X25hbWUiOiAiQ29uZmx1ZW5jZTkiLAogICJzdGFydF91cmwiOiAiLiIsCiAgImRpc3BsYXkiOiAic3RhbmRhbG9uZSIsCiAgImJhY2tncm91bmRfY29sb3IiOiAiIzBCMEYxNyIsCiAgInRoZW1lX2NvbG9yIjogIiMwQjBGMTciLAogICJpY29ucyI6IFsKICAgIHsKICAgICAgInNyYyI6ICJodHRwczovL3BsYWNlaG9sZC5jby8xOTJ4MTkyLzBCMEYxNy9EOUE0NEEucG5nP3RleHQ9Qzk2IiwKICAgICAgInNpemVzIjogIjE5MngxOTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9wbmciCiAgICB9CiAgXQp9">
+
+  <style>
+    * {
+      -webkit-tap-highlight-color: transparent;
+      user-select: none;
+      box-sizing: border-box;
+    }
+    input, textarea, select {
+      user-select: text;
+    }
+    body {
+      background-color: #0B0F17;
+      color: #F1F5F9;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow-x: hidden;
+      -webkit-overflow-scrolling: touch;
+      padding-top: env(safe-area-inset-top);
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #0B0F17;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #1E293B;
+      border-radius: 4px;
+    }
+    .gold-glow {
+      box-shadow: 0 0 16px rgba(217, 164, 74, 0.18);
+    }
+    .scrollbar-none::-webkit-scrollbar {
+      display: none;
+    }
+    .scrollbar-none {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  </style>
+</head>
+<body class="bg-dark-bg min-h-screen text-slate-100 pb-20 selection:bg-gold-500/30">
+  <div id="root"></div>
+
+  <script type="text/babel">
+    const { useState, useEffect, useMemo, useRef } = React;
+    const { 
+      LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid, AreaChart, Area, BarChart, Bar 
+    } = window.Recharts || {};
+
+    const STORAGE_KEY = "confluence_v96_data";
+    const DEFAULT_TIMEFRAMES = [
+      '3M','1M','1W','5d','3d','2d','1D','24h','12h','8h','6h','4h','2h','1h','30m','15m','5m','3m','2m','1m'
+    ];
+
+    const EXCHANGES = [
+      { name: "Binance", takerFee: 0.05 },
+      { name: "Bybit", takerFee: 0.055 },
+      { name: "OKX", takerFee: 0.05 },
+      { name: "Gate.io", takerFee: 0.075 },
+      { name: "KuCoin", takerFee: 0.06 },
+      { name: "MEXC", takerFee: 0.02 },
+      { name: "Bitget", takerFee: 0.06 },
+      { name: "BingX", takerFee: 0.05 },
+      { name: "Bitmart", takerFee: 0.06 },
+      { name: "HTX", takerFee: 0.05 },
+      { name: "WEEX", takerFee: 0.06 }
+    ];
+
+    // EXACT 82 PRE-SURGE FEATURES (16 + 7 + 15 + 8 + 17 + 19 = 82)
+    const CONFLUENCE_PILLARS = [
+      {
+        id: "p1",
+        name: "1. Market Structure & Price Action",
+        features: [
+          "HTF Major Support/Resistance Confluence Zone",
+          "S/R Flip Confirmation (Resistance turns Support)",
+          "Order Block / Supply-Demand Zone Refinement",
+          "Equal Highs / Lows Liquidity Sweep Target",
+          "Fair Value Gap (FVG) / Imbalance Fill",
+          "Breaker Block Retest Pattern Confirmation",
+          "Mitigation Block Alignment with HTF Trend",
+          "Point of Control (POC) Volume Node Support",
+          "Developing POC Shift in Direction of Trade",
+          "Value Area High (VAH) / Low (VAL) Rejection",
+          "Weekly / Monthly Open Level Confluence",
+          "Prior Day High (PDH) / Prior Day Low (PDL) Sweep",
+          "Session High/Low Sweep (Asian/London/NY)",
+          "Trendline Liquidity Line Break & Retest",
+          "Golden Ratio (61.8% / 78.6%) Fib Retracement",
+          "High Timeframe Inside Bar Breakout Expansion"
+        ]
+      },
+      {
+        id: "p2",
+        name: "2. Momentum & Oscillator Divergence",
+        features: [
+          "HTF Bullish/Bearish Trend Vector Alignment",
+          "Multi-Timeframe RSI Bullish/Bearish Divergence",
+          "Hidden Divergence for Trend Continuation",
+          "MACD Signal Line Cross above/below Zero Line",
+          "Stochastic Oversold/Overbought Sweep Signal",
+          "CMF (Chaikin Money Flow) Inflow Dominance",
+          "ADX Trend Strength > 25 Confirmation"
+        ]
+      },
+      {
+        id: "p3",
+        name: "3. Volume Profiling & On-Chain Metrics",
+        features: [
+          "Climactic Volume Spike on Reversal Bar",
+          "Volume Delta Absorption at Key S/R Level",
+          "Low Volume Node (LVN) Rapid Acceptance Gap",
+          "High Volume Node (HVN) Support Base Built",
+          "Exchange Net Inflow/Outflow Extreme Signal",
+          "Miners / Whale Reserves Outflow Trend",
+          "Stablecoin Supply Ratio (SSR) Buying Power High",
+          "Long-Term Holder SOPR Reset to 1.0",
+          "MVRV Z-Score Undervalued / Overvalued Alignment",
+          "Active Addresses Spiking with Price Breakout",
+          "Network Hashrate All-Time High Trend Match",
+          "On-Chain Realized Price Band Rebound",
+          "CVD (Cumulative Volume Delta) Bullish Divergence",
+          "Open Interest Spiking with Spot Volume Expansion",
+          "Network NVT Ratio Signal Normalization Zone"
+        ]
+      },
+      {
+        id: "p4",
+        name: "4. Derivatives & Order Flow Dynamics",
+        features: [
+          "Estimated Leverage Ratio (ELR) Liquidation Flush",
+          "Funding Rate Reset to Neutral/Negative in Uptrend",
+          "Aggressive Short Liquidations Cascade Event",
+          "Aggressive Long Liquidations Flush Event",
+          "Options Max Pain Price Attraction Target",
+          "Gamma Exposure (GEX) Flip Level Support",
+          "Open Interest Expansion with Directional Impulse",
+          "Bid/Ask Imbalance Ratio > 3:1 on Depth Chart"
+        ]
+      },
+      {
+        id: "p5",
+        name: "5. HTF Trend & Macro Environment",
+        features: [
+          "DXY (Dollar Index) Negative Correlation Alignment",
+          "US10Y Treasury Yield Directional Confluence",
+          "SPX / NDX Index Market Sentiment Tailwind",
+          "Fed Liquidity Index Expansion Pattern",
+          "Global M2 Money Supply Growth Acceleration",
+          "Bitcoin Dominance (BTC.D) Cycle Phase Alignment",
+          "Gold/Silver Safe Haven Capital Flow Switch",
+          "Cross-Asset Volatility Index (VIX) Compression",
+          "Macro Event Clear Window (No CPI/FOMC in <2h)",
+          "Institutional ETF Net Inflow Acceleration",
+          "Sector Rotation Inflow into Target Asset Class",
+          "HTF Golden Cross / Death Cross Confirmation",
+          "Quarterly Cycle / Monthly Candle Vector Match",
+          "Central Bank Balance Sheet Inflow Shift",
+          "High-Yield Corporate Bond Spread Narrowing",
+          "Commodities Energy Price Impact Neutrality",
+          "Sovereign Wealth Capital Allocation Trend"
+        ]
+      },
+      {
+        id: "p6",
+        name: "6. Timing & Behavioral Psychology",
+        features: [
+          "Fear & Greed Index Extreme Reset Level",
+          "Retail Sentiment Ratio High Polarization",
+          "Optimal Session Time (NY/London Open Killzone)",
+          "Day of Week Statistical Bias Alignment",
+          "Macro Timing Window (Monthly End Rebalance)",
+          "No Active FOMO / Chase Impulse Detected",
+          "Pre-Planned Entry Level Reached Without Emotion",
+          "10-Minute Pre-Trade Mental Clarity Pass",
+          "Risk/Reward Ratio >= 1:2.5 Fixed Pre-Set",
+          "Hard Stop-Loss Placed Out of Liquidity Pools",
+          "Max Daily Drawdown Allowance Fully Intact",
+          "Zero Revenge Trade Triggered Flag",
+          "Journal Strategy Rules Checked Explicitly",
+          "Position Sizing Verified by Kelly Formula",
+          "Sleep & Physical Energy Threshold Satisfied",
+          "Mobile Connection & Execution Latency Verified",
+          "Trading Workspace Free of External Distractions",
+          "Post-Trade Exit Strategy Defined Before Entry",
+          "Acceptance of Complete Financial Loss Pre-Confirmed"
+        ]
+      }
+    ];
+
+    function App() {
+      // NAVIGATION
+      const [activeTab, setActiveTab] = useState('scan'); // scan, chart, risk, pine, webhook, journal, analytics
+
+      // TIMEFRAME STATE
+      const [timeframes, setTimeframes] = useState(() => {
+        const saved = localStorage.getItem(STORAGE_KEY + '_tf');
+        return saved ? JSON.parse(saved) : DEFAULT_TIMEFRAMES;
+      });
+      const [selectedTF, setSelectedTF] = useState('1h');
+      
+      // CUSTOM TIMEFRAME BUILDER STATE
+      const [tfNumber, setTfNumber] = useState('45');
+      const [tfUnit, setTfUnit] = useState('m');
+
+      // ASSET & SCAN STATE
+      const [symbol, setSymbol] = useState('BTCUSDT');
+      const [tradeDirection, setTradeDirection] = useState('LONG');
+      const [checkedFeatures, setCheckedFeatures] = useState({});
+
+      // COOLDOWN & TILT ENGINE
+      const [cooldownTime, setCooldownTime] = useState(0);
+      const [tiltFlags, setTiltFlags] = useState({ fomo: false, revenge: false, tilt: false });
+
+      // RISK ENGINE STATE
+      const [accountBalance, setAccountBalance] = useState(10000);
+      const [riskPercent, setRiskPercent] = useState(1.0);
+      const [entryPrice, setEntryPrice] = useState(65000);
+      const [stopLoss, setStopLoss] = useState(64000);
+      const [takeProfit, setTakeProfit] = useState(68000);
+      const [leverage, setLeverage] = useState(10);
+      const [selectedExchange, setSelectedExchange] = useState(EXCHANGES[0]);
+
+      // JOURNAL & STATS STATE
+      const [journalTrades, setJournalTrades] = useState(() => {
+        const saved = localStorage.getItem(STORAGE_KEY + '_trades');
+        return saved ? JSON.parse(saved) : [];
+      });
+
+      // PWA STATE
+      const [deferredPrompt, setDeferredPrompt] = useState(null);
+      const [isPWAInstalled, setIsPWAInstalled] = useState(false);
+
+      // WEBHOOK SIMULATOR LOGS
+      const [webhookLogs, setWebhookLogs] = useState([]);
+
+      // PERSISTENCE EFFECT
+      useEffect(() => {
+        localStorage.setItem(STORAGE_KEY + '_tf', JSON.stringify(timeframes));
+      }, [timeframes]);
+
+      useEffect(() => {
+        localStorage.setItem(STORAGE_KEY + '_trades', JSON.stringify(journalTrades));
+      }, [journalTrades]);
+
+      // COOLDOWN TIMER COUNTDOWN
+      useEffect(() => {
+        if (cooldownTime <= 0) return;
+        const interval = setInterval(() => {
+          setCooldownTime(prev => (prev <= 1 ? 0 : prev - 1));
+        }, 1000);
+        return () => clearInterval(interval);
+      }, [cooldownTime]);
+
+      // PWA EVENT
+      useEffect(() => {
+        window.addEventListener('beforeinstallprompt', (e) => {
+          e.preventDefault();
+          setDeferredPrompt(e);
+        });
+        window.addEventListener('appinstalled', () => {
+          setIsPWAInstalled(true);
+        });
+      }, []);
+
+      // LUCIDE ICON RENDER
+      useEffect(() => {
+        if (window.lucide) {
+          window.lucide.createIcons();
+        }
+      });
+
+      // CALCULATE SCORE (TOTAL 82 FEATURES)
+      const totalFeatureCount = useMemo(() => {
+        return CONFLUENCE_PILLARS.reduce((acc, p) => acc + p.features.length, 0);
+      }, []);
+
+      const checkedCount = useMemo(() => {
+        return Object.values(checkedFeatures).filter(Boolean).length;
+      }, [checkedFeatures]);
+
+      const confluencePercentage = useMemo(() => {
+        if (totalFeatureCount === 0) return 0;
+        return Math.round((checkedCount / totalFeatureCount) * 100);
+      }, [checkedCount, totalFeatureCount]);
+
+      const confluenceScore = useMemo(() => {
+        return Number(((confluencePercentage / 100) * 10).toFixed(1));
+      }, [confluencePercentage]);
+
+      // RISK CALCULATIONS ENGINE
+      const riskCalc = useMemo(() => {
+        const riskAmountUSD = accountBalance * (riskPercent / 100);
+        const priceDiff = Math.abs(entryPrice - stopLoss);
+        const rewardDiff = Math.abs(takeProfit - entryPrice);
+
+        if (priceDiff === 0 || entryPrice === 0) {
+          return { positionUnits: 0, positionValUSD: 0, grossRR: 0, netRR: 0, halfKelly: 0, feesUSD: 0, warning: '' };
+        }
+
+        const positionUnits = riskAmountUSD / priceDiff;
+        const positionValUSD = positionUnits * entryPrice;
+        const grossRR = rewardDiff / priceDiff;
+
+        // Roundtrip exchange fees
+        const takerFeeRate = selectedExchange.takerFee / 100;
+        const feesUSD = (positionValUSD * takerFeeRate) + ((positionUnits * takeProfit) * takerFeeRate);
+
+        const netRewardUSD = (positionUnits * rewardDiff) - feesUSD;
+        const netRiskUSD = riskAmountUSD + feesUSD;
+        const netRR = netRiskUSD > 0 ? (netRewardUSD / netRiskUSD) : 0;
+
+        // Half-Kelly estimate
+        const p = Math.min(0.85, Math.max(0.35, confluencePercentage / 100));
+        const b = grossRR > 0 ? grossRR : 1;
+        const fullKelly = (p * b - (1 - p)) / b;
+        const halfKellyPct = Math.max(0, (fullKelly / 2) * 100);
+
+        let warning = '';
+        if (positionValUSD > accountBalance * leverage) {
+          warning = `Position exceeds selected leverage threshold (${leverage}x)`;
+        } else if (leverage >= 20) {
+          warning = `High leverage (${leverage}x) increases liquidation vulnerability!`;
+        } else if (tiltFlags.fomo || tiltFlags.revenge || tiltFlags.tilt) {
+          warning = `Behavioral Tilt Active! Reduce risk or activate 10m Cooldown lock.`;
+        }
+
+        return {
+          riskAmountUSD: riskAmountUSD.toFixed(2),
+          positionUnits: positionUnits.toFixed(4),
+          positionValUSD: positionValUSD.toFixed(2),
+          grossRR: grossRR.toFixed(2),
+          netRR: netRR.toFixed(2),
+          halfKellyPct: halfKellyPct.toFixed(1),
+          feesUSD: feesUSD.toFixed(2),
+          warning
+        };
+      }, [accountBalance, riskPercent, entryPrice, stopLoss, takeProfit, leverage, selectedExchange, confluencePercentage, tiltFlags]);
+
+      // TIMEFRAME BUILDER HANDLER
+      const handleAddCustomTF = () => {
+        if (!tfNumber || isNaN(tfNumber) || parseInt(tfNumber) <= 0) return;
+        const createdTF = `${tfNumber}${tfUnit}`;
+        if (!timeframes.includes(createdTF)) {
+          setTimeframes([createdTF, ...timeframes]);
+        }
+        setSelectedTF(createdTF);
+      };
+
+      // CHECKLIST TOGGLE
+      const toggleFeature = (feat) => {
+        setCheckedFeatures(prev => ({
+          ...prev,
+          [feat]: !prev[feat]
+        }));
+      };
+
+      const resetChecklist = () => {
+        setCheckedFeatures({});
+      };
+
+      // SAVE TRADE TO JOURNAL
+      const saveTradeToJournal = () => {
+        if (cooldownTime > 0) {
+          alert("10-minute mental cooldown lock active. Take a breather before opening new positions!");
+          return;
+        }
+
+        const newTrade = {
+          id: Date.now().toString(),
+          date: new Date().toISOString().slice(0, 10),
+          time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          symbol,
+          direction: tradeDirection,
+          timeframe: selectedTF,
+          score: confluenceScore,
+          confluencePct: confluencePercentage,
+          entryPrice,
+          stopLoss,
+          takeProfit,
+          riskAmountUSD: riskCalc.riskAmountUSD,
+          netRR: riskCalc.netRR,
+          exchange: selectedExchange.name,
+          tilt: { ...tiltFlags },
+          status: 'PENDING', // PENDING, WIN, LOSS, BREAKEVEN
+          outcomeR: 0,
+          notes: `Score: ${confluenceScore}/10 (${checkedCount}/82 Features). Exchange: ${selectedExchange.name}`
+        };
+
+        setJournalTrades([newTrade, ...journalTrades]);
+        alert(`Trade saved to mobile journal! [${symbol} - ${selectedTF}]`);
+      };
+
+      // UPDATE JOURNAL STATUS
+      const updateTradeStatus = (id, newStatus, customR) => {
+        setJournalTrades(prev => prev.map(t => {
+          if (t.id === id) {
+            return {
+              ...t,
+              status: newStatus,
+              outcomeR: parseFloat(customR) || 0
+            };
+          }
+          return t;
+        }));
+      };
+
+      // BACKUP EXPORT / RESTORE
+      const exportJournalJSON = () => {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(journalTrades, null, 2));
+        const dlAnchor = document.createElement('a');
+        dlAnchor.setAttribute("href", dataStr);
+        dlAnchor.setAttribute("download", `confluence_journal_backup_${new Date().toISOString().slice(0,10)}.json`);
+        document.body.appendChild(dlAnchor);
+        dlAnchor.click();
+        dlAnchor.remove();
+      };
+
+      const importJournalJSON = (e) => {
+        const fileReader = new FileReader();
+        if (e.target.files && e.target.files[0]) {
+          fileReader.readAsText(e.target.files[0], "UTF-8");
+          fileReader.onload = (event) => {
+            try {
+              const parsed = JSON.parse(event.target.result);
+              if (Array.isArray(parsed)) {
+                setJournalTrades(parsed);
+                alert("Journal backup restored successfully!");
+              }
+            } catch (err) {
+              alert("Invalid JSON backup file.");
+            }
+          };
+        }
+      };
+
+      // SIMULATE WEBHOOK TRIGGER
+      const triggerSimulatedWebhook = () => {
+        const log = {
+          id: Date.now(),
+          timestamp: new Date().toLocaleTimeString(),
+          symbol,
+          tf: selectedTF,
+          direction: tradeDirection,
+          score: confluenceScore,
+          payload: `{"event": "SIGNAL", "symbol": "${symbol}", "tf": "${selectedTF}", "direction": "${tradeDirection}", "score": ${confluenceScore}}`
+        };
+        setWebhookLogs([log, ...webhookLogs]);
+      };
+
+      // PWA INSTALL TRIGGER
+      const triggerPWAInstall = () => {
+        if (deferredPrompt) {
+          deferredPrompt.prompt();
+          deferredPrompt.userChoice.then((choice) => {
+            if (choice.outcome === 'accepted') {
+              setIsPWAInstalled(true);
+            }
+            setDeferredPrompt(null);
+          });
+        }
+      };
+
+      // PINE SCRIPT V5 GENERATOR
+      const pineScriptCode = useMemo(() => {
+        return `//@version=5
+indicator("Confluence Engine v9.6 Alert System", overlay=true)
+
+// User Inputs
+i_symbol   = input.string("${symbol}", title="Asset Symbol")
+i_tf       = input.timeframe("${selectedTF.toUpperCase()}", title="Scanning Timeframe")
+i_minScore = input.float(7.5, title="Minimum Confluence Threshold", step=0.5)
+
+// Pre-Surge Technical Calculations
+ema200     = ta.ema(close, 200)
+rsiVal     = ta.rsi(close, 14)
+[macdLine, signalLine, _] = ta.macd(close, 12, 26, 9)
+
+// Multi-Pillar Confluence Logic
+bool c1_trend = close > ema200
+bool c2_rsi   = rsiVal < 35 or (close < close[1] and rsiVal > rsiVal[1])
+bool c3_macd  = ta.crossover(macdLine, signalLine)
+bool c4_vol   = volume > ta.sma(volume, 20) * 1.5
+
+float currentScore = 0.0
+if c1_trend
+    currentScore += 2.5
+if c2_rsi
+    currentScore += 2.5
+if c3_macd
+    currentScore += 2.5
+if c4_vol
+    currentScore += 2.5
+
+// Webhook Triggers
+bool longSignal  = (currentScore >= i_minScore) and ta.crossover(close, ta.ema(close, 20))
+bool shortSignal = ((10.0 - currentScore) >= i_minScore) and ta.crossunder(close, ta.ema(close, 20))
+
+plotshape(longSignal, title="Buy Signal", location=location.belowbar, color=color.yellow, style=shape.triangleup, size=size.small, text="BUY")
+plotshape(shortSignal, title="Sell Signal", location=location.abovebar, color=color.red, style=shape.triangledown, size=size.small, text="SELL")
+
+alertcondition(longSignal, title="Confluence LONG Alert", message='{"event": "LONG", "symbol": "{{ticker}}", "tf": "' + i_tf + '", "score": ' + str.tostring(currentScore) + '}')
+alertcondition(shortSignal, title="Confluence SHORT Alert", message='{"event": "SHORT", "symbol": "{{ticker}}", "tf": "' + i_tf + '", "score": ' + str.tostring(currentScore) + '}')
+`;
+      }, [symbol, selectedTF]);
+
+      return (
+        <div className="min-h-screen flex flex-col max-w-md mx-auto bg-dark-bg border-x border-dark-border relative shadow-2xl">
+          
+          {/* MOBILE HEADER */}
+          <header className="sticky top-0 z-40 bg-dark-card/95 backdrop-blur border-b border-dark-border p-3 flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8 rounded-lg bg-gold-500/20 border border-gold-500/40 flex items-center justify-center font-bold text-gold-500 text-xs">
+                v9.6
+              </div>
+              <div>
+                <h1 className="font-extrabold text-xs tracking-wider text-slate-100 flex items-center gap-1">
+                  CONFLUENCE <span className="text-gold-500">PRO</span>
+                </h1>
+                <p className="text-[9px] text-slate-400 font-medium">Standalone Mobile Engine</p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-2">
+              {cooldownTime > 0 ? (
+                <div className="bg-rose-500/20 border border-rose-500/50 text-rose-400 px-2 py-1 rounded text-xs font-mono font-bold flex items-center gap-1 animate-pulse">
+                  <i data-lucide="lock" className="w-3 h-3"></i>
+                  {Math.floor(cooldownTime / 60)}:{(cooldownTime % 60).toString().padStart(2, '0')}
+                </div>
+              ) : (
+                <button
+                  onClick={() => setCooldownTime(600)}
+                  title="Trigger 10-minute mental cooldown lock"
+                  className="p-1.5 rounded-lg bg-dark-border text-slate-300 hover:text-gold-400 active:scale-95 transition"
+                >
+                  <i data-lucide="shield-alert" className="w-4 h-4"></i>
+                </button>
+              )}
+
+              {!isPWAInstalled && deferredPrompt && (
+                <button
+                  onClick={triggerPWAInstall}
+                  className="bg-gold-500 text-dark-bg font-extrabold text-xs px-2.5 py-1.5 rounded-lg flex items-center gap-1 active:scale-95 transition shadow"
+                >
+                  <i data-lucide="download" className="w-3.5 h-3.5"></i> App
+                </button>
+              )}
+            </div>
+          </header>
+
+          {/* ASSET & TIMEFRAME RIBBON */}
+          <section className="bg-dark-card/70 border-b border-dark-border p-3 space-y-2.5">
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center space-x-1.5 flex-1">
+                <span className="text-[10px] text-slate-400 font-bold uppercase">PAIR:</span>
+                <input
+                  type="text"
+                  value={symbol}
+                  onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                  className="bg-dark-bg border border-dark-border rounded px-2 py-1 text-xs font-mono font-bold text-gold-400 uppercase w-28 focus:border-gold-500 outline-none"
+                />
+              </div>
+
+              <div className="flex bg-dark-bg p-0.5 rounded-lg border border-dark-border">
+                <button
+                  onClick={() => setTradeDirection('LONG')}
+                  className={`px-3 py-1 text-xs font-bold rounded transition ${
+                    tradeDirection === 'LONG' ? 'bg-emerald-500 text-dark-bg' : 'text-slate-400'
+                  }`}
+                >
+                  LONG
+                </button>
+                <button
+                  onClick={() => setTradeDirection('SHORT')}
+                  className={`px-3 py-1 text-xs font-bold rounded transition ${
+                    tradeDirection === 'SHORT' ? 'bg-rose-500 text-slate-100' : 'text-slate-400'
+                  }`}
+                >
+                  SHORT
+                </button>
+              </div>
+            </div>
+
+            {/* 20 Preset Timeframes Horizontal Slider */}
+            <div className="flex items-center space-x-1 overflow-x-auto pb-1 pt-1 scrollbar-none">
+              <span className="text-[10px] text-slate-400 font-bold pr-1">TF:</span>
+              {timeframes.map(tf => (
+                <button
+                  key={tf}
+                  onClick={() => setSelectedTF(tf)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-mono font-semibold whitespace-nowrap transition min-w-[36px] min-h-[32px] flex items-center justify-center ${
+                    selectedTF === tf 
+                      ? 'bg-gold-500 text-dark-bg font-extrabold shadow-md' 
+                      : 'bg-dark-bg text-slate-400 border border-dark-border hover:border-slate-600'
+                  }`}
+                >
+                  {tf}
+                </button>
+              ))}
+            </div>
+
+            {/* Custom Timeframe Builder Engine */}
+            <div className="flex items-center gap-1.5 pt-1">
+              <span className="text-[10px] text-slate-400 font-bold">CUSTOM TF:</span>
+              <input
+                type="number"
+                placeholder="45"
+                value={tfNumber}
+                onChange={(e) => setTfNumber(e.target.value)}
+                className="w-14 bg-dark-bg border border-dark-border rounded px-2 py-1 text-xs font-mono text-slate-100 focus:border-gold-500 outline-none"
+              />
+              <select
+                value={tfUnit}
+                onChange={(e) => setTfUnit(e.target.value)}
+                className="bg-dark-bg border border-dark-border rounded px-2 py-1 text-xs font-mono text-slate-300 focus:border-gold-500 outline-none"
+              >
+                <option value="m">Min (m)</option>
+                <option value="h">Hour (h)</option>
+                <option value="d">Day (d)</option>
+                <option value="w">Week (w)</option>
+                <option value="M">Month (M)</option>
+              </select>
+              <button
+                onClick={handleAddCustomTF}
+                className="bg-dark-border hover:bg-gold-500/20 text-slate-200 hover:text-gold-400 text-xs font-bold px-2.5 py-1 rounded min-h-[30px] border border-dark-border transition active:scale-95"
+              >
+                + Add
+              </button>
+            </div>
+          </section>
+
+          {/* MAIN TAB CONTENT */}
+          <main className="flex-1 p-3 space-y-4">
+
+            {/* TAB 1: SCANNER & 82 PRE-SURGE FEATURES */}
+            {activeTab === 'scan' && (
+              <div className="space-y-4">
+                {/* Live Confluence Score Tile */}
+                <div className="bg-dark-card border border-dark-border rounded-2xl p-4 gold-glow flex items-center justify-between">
+                  <div className="space-y-1">
+                    <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                      Confluence Score
+                    </div>
+                    <div className="flex items-baseline space-x-1.5">
+                      <span className="text-3xl font-black text-gold-500 font-mono">{confluenceScore}</span>
+                      <span className="text-slate-400 text-xs font-bold">/ 10.0</span>
+                    </div>
+                    <div className="text-[11px] text-slate-300 font-medium">
+                      {checkedCount} / {totalFeatureCount} Features Checked ({confluencePercentage}%)
+                    </div>
+                  </div>
+
+                  {/* Dynamic Progress Ring */}
+                  <div className="relative w-16 h-16 flex items-center justify-center">
+                    <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                      <path
+                        className="text-dark-border"
+                        strokeWidth="3.5"
+                        stroke="currentColor"
+                        fill="none"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                      <path
+                        className="text-gold-500 transition-all duration-500"
+                        strokeDasharray={`${confluencePercentage}, 100`}
+                        strokeWidth="3.5"
+                        strokeLinecap="round"
+                        stroke="currentColor"
+                        fill="none"
+                        d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                      />
+                    </svg>
+                    <span className="absolute text-xs font-bold font-mono text-gold-400">
+                      {confluencePercentage}%
+                    </span>
+                  </div>
+                </div>
+
+                {/* Behavioral Tilt Chips */}
+                <div className="bg-dark-card border border-dark-border rounded-xl p-3 space-y-2">
+                  <div className="text-xs font-bold text-slate-300 flex items-center gap-1.5">
+                    <i data-lucide="brain-circuit" className="w-4 h-4 text-gold-500"></i>
+                    Behavioral Tilt Guard
+                  </div>
+                  <div className="grid grid-cols-3 gap-2">
+                    <button
+                      onClick={() => setTiltFlags(p => ({ ...p, fomo: !p.fomo }))}
+                      className={`p-2 rounded-lg text-xs font-semibold flex flex-col items-center gap-1 border transition ${
+                        tiltFlags.fomo 
+                          ? 'bg-rose-500/20 border-rose-500 text-rose-300' 
+                          : 'bg-dark-bg border-dark-border text-slate-400'
+                      }`}
+                    >
+                      <i data-lucide="flame" className="w-3.5 h-3.5"></i>
+                      FOMO
+                    </button>
+                    <button
+                      onClick={() => setTiltFlags(p => ({ ...p, revenge: !p.revenge }))}
+                      className={`p-2 rounded-lg text-xs font-semibold flex flex-col items-center gap-1 border transition ${
+                        tiltFlags.revenge 
+                          ? 'bg-rose-500/20 border-rose-500 text-rose-300' 
+                          : 'bg-dark-bg border-dark-border text-slate-400'
+                      }`}
+                    >
+                      <i data-lucide="swords" className="w-3.5 h-3.5"></i>
+                      Revenge
+                    </button>
+                    <button
+                      onClick={() => setCooldownTime(600)}
+                      className="p-2 rounded-lg text-xs font-semibold flex flex-col items-center gap-1 bg-dark-bg border border-dark-border text-slate-300 hover:border-gold-500/50"
+                    >
+                      <i data-lucide="timer" className="w-3.5 h-3.5 text-gold-400"></i>
+                      10m Lock
+                    </button>
+                  </div>
+                </div>
+
+                {/* 82 Features Accordion List */}
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
+                      82 Pre-Surge Checklist Features
+                    </h3>
+                    <button
+                      onClick={resetChecklist}
+                      className="text-[11px] text-slate-400 hover:text-gold-400 underline font-medium"
+                    >
+                      Reset All
+                    </button>
+                  </div>
+
+                  {CONFLUENCE_PILLARS.map((pillar) => (
+                    <details
+                      key={pillar.id}
+                      className="bg-dark-card border border-dark-border rounded-xl overflow-hidden group"
+                      open
+                    >
+                      <summary className="p-3 bg-dark-card/90 font-semibold text-xs text-gold-400 flex items-center justify-between cursor-pointer list-none border-b border-dark-border/50">
+                        <span className="flex items-center gap-1.5">
+                          <i data-lucide="layers" className="w-3.5 h-3.5 text-gold-500"></i>
+                          {pillar.name}
+                        </span>
+                        <span className="text-[10px] font-mono bg-dark-bg text-slate-300 px-2 py-0.5 rounded-full border border-dark-border">
+                          {pillar.features.filter(f => checkedFeatures[f]).length} / {pillar.features.length}
+                        </span>
+                      </summary>
+
+                      <div className="p-2 space-y-1 bg-dark-bg/40">
+                        {pillar.features.map((feature) => {
+                          const isChecked = !!checkedFeatures[feature];
+                          return (
+                            <button
+                              key={feature}
+                              onClick={() => toggleFeature(feature)}
+                              className={`w-full text-left p-2.5 rounded-lg text-xs flex items-center space-x-2.5 transition active:scale-[0.99] border min-h-[44px] ${
+                                isChecked
+                                  ? 'bg-gold-500/10 border-gold-500/40 text-slate-100 font-medium'
+                                  : 'bg-dark-card/40 border-dark-border/40 text-slate-400 hover:text-slate-200'
+                              }`}
+                            >
+                              <div className={`w-4 h-4 rounded border flex items-center justify-center transition shrink-0 ${
+                                isChecked ? 'bg-gold-500 border-gold-500 text-dark-bg' : 'border-slate-600'
+                              }`}>
+                                {isChecked && <i data-lucide="check" className="w-3 h-3 stroke-[3]"></i>}
+                              </div>
+                              <span className="leading-tight">{feature}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </details>
+                  ))}
+                </div>
+
+                {/* Save Trade CTA */}
+                <button
+                  onClick={saveTradeToJournal}
+                  disabled={cooldownTime > 0}
+                  className={`w-full py-3.5 px-4 rounded-xl font-extrabold text-xs tracking-wider flex items-center justify-center space-x-2 shadow-lg transition active:scale-95 min-h-[48px] ${
+                    cooldownTime > 0
+                      ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                      : 'bg-gold-500 hover:bg-gold-400 text-dark-bg gold-glow'
+                  }`}
+                >
+                  <i data-lucide="bookmark" className="w-4 h-4"></i>
+                  <span>LOG TRADE TO JOURNAL ({symbol} - {selectedTF})</span>
+                </button>
+              </div>
+            )}
+
+            {/* TAB 2: LIGHT TRADINGVIEW CHART EMBED */}
+            {activeTab === 'chart' && (
+              <div className="space-y-3">
+                <div className="bg-dark-card border border-dark-border rounded-xl p-3 flex items-center justify-between">
+                  <div className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <i data-lucide="candlestick-chart" className="w-4 h-4 text-gold-500"></i>
+                    TradingView Live Chart
+                  </div>
+                  <span className="text-xs font-mono text-gold-400">{symbol} • {selectedTF}</span>
+                </div>
+
+                <div className="bg-dark-card border border-dark-border rounded-xl overflow-hidden h-[420px] relative">
+                  <iframe
+                    title="TradingView Chart"
+                    src={`https://s.tradingview.com/widgetembed/?frameElementId=tradingview_widget&symbol=${symbol}&interval=${selectedTF.replace('m','').replace('h','60').replace('d','D')}&hidesidetoolbar=1&symboledit=1&saveimage=1&toolbarbg=0B0F17&studies=[]&theme=dark&style=1&timezone=Etc%2FUTC&locale=en`}
+                    className="w-full h-full border-0"
+                  ></iframe>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 3: RISK ENGINE & MULTI-EXCHANGE CALCULATOR */}
+            {activeTab === 'risk' && (
+              <div className="space-y-4">
+                <div className="bg-dark-card border border-dark-border rounded-xl p-3 space-y-1">
+                  <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <i data-lucide="calculator" className="w-4 h-4 text-gold-500"></i>
+                    Risk & Half-Kelly Sizing Engine
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Adjust account capital, leverage, exchange fee rates, and position targets.
+                  </p>
+                </div>
+
+                <div className="bg-dark-card border border-dark-border rounded-xl p-3 space-y-3">
+                  {/* Exchange Select */}
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-bold block mb-1">SELECT EXCHANGE (FEE TIER)</label>
+                    <select
+                      value={selectedExchange.name}
+                      onChange={(e) => {
+                        const ex = EXCHANGES.find(x => x.name === e.target.value);
+                        if (ex) setSelectedExchange(ex);
+                      }}
+                      className="w-full bg-dark-bg border border-dark-border rounded p-2 text-xs font-mono text-gold-400 font-bold focus:border-gold-500 outline-none"
+                    >
+                      {EXCHANGES.map(ex => (
+                        <option key={ex.name} value={ex.name}>
+                          {ex.name} (Taker Fee: {ex.takerFee}%)
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-bold block mb-1">ACCOUNT BALANCE ($)</label>
+                      <input
+                        type="number"
+                        value={accountBalance}
+                        onChange={e => setAccountBalance(parseFloat(e.target.value) || 0)}
+                        className="w-full bg-dark-bg border border-dark-border rounded p-2 text-xs font-mono text-slate-100 focus:border-gold-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-bold block mb-1">RISK PER TRADE (%)</label>
+                      <input
+                        type="number"
+                        step="0.1"
+                        value={riskPercent}
+                        onChange={e => setRiskPercent(parseFloat(e.target.value) || 0)}
+                        className="w-full bg-dark-bg border border-dark-border rounded p-2 text-xs font-mono text-gold-400 focus:border-gold-500 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-3 gap-2">
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-bold block mb-1">ENTRY PRICE</label>
+                      <input
+                        type="number"
+                        value={entryPrice}
+                        onChange={e => setEntryPrice(parseFloat(e.target.value) || 0)}
+                        className="w-full bg-dark-bg border border-dark-border rounded p-2 text-xs font-mono text-slate-100 focus:border-gold-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-bold block mb-1">STOP LOSS</label>
+                      <input
+                        type="number"
+                        value={stopLoss}
+                        onChange={e => setStopLoss(parseFloat(e.target.value) || 0)}
+                        className="w-full bg-dark-bg border border-dark-border rounded p-2 text-xs font-mono text-rose-400 focus:border-gold-500 outline-none"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-slate-400 font-bold block mb-1">TAKE PROFIT</label>
+                      <input
+                        type="number"
+                        value={takeProfit}
+                        onChange={e => setTakeProfit(parseFloat(e.target.value) || 0)}
+                        className="w-full bg-dark-bg border border-dark-border rounded p-2 text-xs font-mono text-emerald-400 focus:border-gold-500 outline-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="text-[10px] text-slate-400 font-bold block mb-1">MAX LEVERAGE (x)</label>
+                    <input
+                      type="number"
+                      value={leverage}
+                      onChange={e => setLeverage(parseInt(e.target.value) || 1)}
+                      className="w-full bg-dark-bg border border-dark-border rounded p-2 text-xs font-mono text-slate-100 focus:border-gold-500 outline-none"
+                    />
+                  </div>
+                </div>
+
+                {/* Calculation Outputs */}
+                <div className="bg-dark-card border border-dark-border rounded-xl p-3 space-y-2">
+                  <div className="text-xs font-bold text-slate-300">Position & Risk Output</div>
+
+                  {riskCalc.warning && (
+                    <div className="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/40 text-rose-300 text-xs font-semibold flex items-center gap-2">
+                      <i data-lucide="alert-triangle" className="w-4 h-4 shrink-0 text-rose-400"></i>
+                      <span>{riskCalc.warning}</span>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-2 font-mono text-xs">
+                    <div className="bg-dark-bg p-2.5 rounded border border-dark-border">
+                      <div className="text-[10px] text-slate-500 font-sans">MAX RISK USD</div>
+                      <div className="text-slate-100 font-bold">${riskCalc.riskAmountUSD}</div>
+                    </div>
+                    <div className="bg-dark-bg p-2.5 rounded border border-dark-border">
+                      <div className="text-[10px] text-slate-500 font-sans">POS UNITS</div>
+                      <div className="text-gold-400 font-bold">{riskCalc.positionUnits}</div>
+                    </div>
+                    <div className="bg-dark-bg p-2.5 rounded border border-dark-border">
+                      <div className="text-[10px] text-slate-500 font-sans">NOTIONAL VALUE</div>
+                      <div className="text-slate-100 font-bold">${riskCalc.positionValUSD}</div>
+                    </div>
+                    <div className="bg-dark-bg p-2.5 rounded border border-dark-border">
+                      <div className="text-[10px] text-slate-500 font-sans">NET R:R (AFTER FEES)</div>
+                      <div className="text-emerald-400 font-bold">{riskCalc.netRR}R</div>
+                    </div>
+                    <div className="bg-dark-bg p-2.5 rounded border border-dark-border">
+                      <div className="text-[10px] text-slate-500 font-sans">ESTIMATED FEES</div>
+                      <div className="text-slate-300 font-bold">${riskCalc.feesUSD}</div>
+                    </div>
+                    <div className="bg-dark-bg p-2.5 rounded border border-dark-border">
+                      <div className="text-[10px] text-slate-500 font-sans">HALF-KELLY REC.</div>
+                      <div className="text-gold-400 font-bold">{riskCalc.halfKellyPct}%</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 4: PINE SCRIPT V5 GENERATOR */}
+            {activeTab === 'pine' && (
+              <div className="space-y-3">
+                <div className="bg-dark-card border border-dark-border rounded-xl p-3 space-y-1">
+                  <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <i data-lucide="code" className="w-4 h-4 text-gold-500"></i>
+                    Pine Script v5 Confluence Alert Code
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Auto-generated script for <span className="text-gold-400 font-bold">{symbol}</span> on <span className="text-gold-400 font-bold">{selectedTF}</span>.
+                  </p>
+                </div>
+
+                <div className="relative">
+                  <textarea
+                    readOnly
+                    rows={13}
+                    value={pineScriptCode}
+                    className="w-full bg-dark-bg border border-dark-border rounded-xl p-3 text-[11px] font-mono text-emerald-400 focus:outline-none focus:border-gold-500 leading-relaxed"
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(pineScriptCode);
+                      alert("Pine Script copied to clipboard! Paste directly into TradingView Pine Editor.");
+                    }}
+                    className="absolute top-3 right-3 bg-gold-500 hover:bg-gold-400 text-dark-bg font-bold text-xs px-3 py-1.5 rounded-lg flex items-center gap-1 shadow transition active:scale-95"
+                  >
+                    <i data-lucide="copy" className="w-3.5 h-3.5"></i> Copy Script
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* TAB 5: WEBHOOK TERMINAL SIMULATOR */}
+            {activeTab === 'webhook' && (
+              <div className="space-y-3">
+                <div className="bg-dark-card border border-dark-border rounded-xl p-3 space-y-2">
+                  <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <i data-lucide="radio" className="w-4 h-4 text-gold-500"></i>
+                    Webhook Listener Terminal
+                  </h3>
+                  <p className="text-[11px] text-slate-400 leading-normal">
+                    Test live signal alerts directly on phone screen.
+                  </p>
+
+                  <button
+                    onClick={triggerSimulatedWebhook}
+                    className="w-full py-2.5 bg-dark-border hover:bg-gold-500/20 hover:text-gold-400 text-slate-200 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition active:scale-95 min-h-[40px]"
+                  >
+                    <i data-lucide="play" className="w-3.5 h-3.5 text-gold-500"></i>
+                    Simulate Signal Trigger
+                  </button>
+                </div>
+
+                <div className="bg-dark-card border border-dark-border rounded-xl p-3 space-y-2">
+                  <div className="text-xs font-bold text-slate-300">Terminal Output Stream</div>
+                  {webhookLogs.length === 0 ? (
+                    <div className="text-center py-6 text-xs text-slate-500 font-mono">
+                      No webhook logs triggered yet.
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {webhookLogs.map(log => (
+                        <div key={log.id} className="bg-dark-bg p-2.5 rounded-lg border border-dark-border space-y-1 text-xs font-mono">
+                          <div className="flex justify-between text-slate-400 text-[10px]">
+                            <span>{log.timestamp}</span>
+                            <span className="text-gold-400 font-bold">{log.symbol} ({log.tf})</span>
+                          </div>
+                          <div className="text-emerald-400">{log.payload}</div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* TAB 6: JOURNAL LOG & BACKUP IMPORT/EXPORT */}
+            {activeTab === 'journal' && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-between gap-2">
+                  <h3 className="text-xs font-bold text-slate-200 uppercase tracking-wider">Journal Trades</h3>
+                  <div className="flex items-center space-x-1.5">
+                    <button
+                      onClick={exportJournalJSON}
+                      className="bg-gold-500 hover:bg-gold-400 text-dark-bg text-[11px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1 shadow transition active:scale-95"
+                    >
+                      <i data-lucide="download" className="w-3 h-3"></i> Export
+                    </button>
+                    <label className="bg-dark-border hover:bg-slate-700 text-slate-200 text-[11px] font-bold px-2.5 py-1.5 rounded-lg flex items-center gap-1 cursor-pointer transition active:scale-95">
+                      <i data-lucide="upload" className="w-3 h-3"></i> Import
+                      <input type="file" accept=".json" onChange={importJournalJSON} className="hidden" />
+                    </label>
+                  </div>
+                </div>
+
+                {journalTrades.length === 0 ? (
+                  <div className="bg-dark-card border border-dark-border rounded-xl p-8 text-center space-y-2">
+                    <i data-lucide="book-open" className="w-8 h-8 text-slate-600 mx-auto"></i>
+                    <p className="text-xs text-slate-400 font-medium">No saved trades in mobile journal.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5">
+                    {journalTrades.map(trade => (
+                      <div key={trade.id} className="bg-dark-card border border-dark-border rounded-xl p-3 space-y-2">
+                        <div className="flex items-center justify-between border-b border-dark-border/60 pb-2">
+                          <div className="flex items-center space-x-2">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              trade.direction === 'LONG' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                            }`}>
+                              {trade.direction}
+                            </span>
+                            <span className="font-bold text-xs text-slate-100">{trade.symbol}</span>
+                            <span className="text-[10px] text-slate-400 font-mono">({trade.timeframe})</span>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-mono">{trade.date}</span>
+                        </div>
+
+                        <div className="grid grid-cols-3 gap-2 font-mono text-[11px]">
+                          <div>
+                            <span className="text-[9px] text-slate-500 block">SCORE</span>
+                            <span className="text-gold-400 font-bold">{trade.score}/10</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-slate-500 block">RISK USD</span>
+                            <span className="text-slate-200">${trade.riskAmountUSD}</span>
+                          </div>
+                          <div>
+                            <span className="text-[9px] text-slate-500 block">NET R:R</span>
+                            <span className="text-emerald-400 font-bold">{trade.netRR}R</span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between pt-1">
+                          <div className="flex items-center space-x-1">
+                            {['WIN', 'LOSS', 'BREAKEVEN', 'PENDING'].map(st => (
+                              <button
+                                key={st}
+                                onClick={() => {
+                                  const r = st === 'WIN' ? (parseFloat(trade.netRR) || 1) : st === 'LOSS' ? -1 : 0;
+                                  updateTradeStatus(trade.id, st, r);
+                                }}
+                                className={`px-2 py-1 rounded text-[9px] font-bold transition min-h-[30px] ${
+                                  trade.status === st
+                                    ? st === 'WIN' ? 'bg-emerald-500 text-dark-bg' : st === 'LOSS' ? 'bg-rose-500 text-slate-100' : 'bg-slate-600 text-slate-100'
+                                    : 'bg-dark-bg text-slate-400 border border-dark-border'
+                                }`}
+                              >
+                                {st}
+                              </button>
+                            ))}
+                          </div>
+
+                          {trade.status !== 'PENDING' && (
+                            <span className={`text-xs font-mono font-bold ${trade.outcomeR >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                              {trade.outcomeR >= 0 ? `+${trade.outcomeR}` : trade.outcomeR}R
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* TAB 7: PERFORMANCE ANALYTICS */}
+            {activeTab === 'analytics' && (
+              <div className="space-y-4">
+                <div className="bg-dark-card border border-dark-border rounded-xl p-3 space-y-1">
+                  <h3 className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+                    <i data-lucide="line-chart" className="w-4 h-4 text-gold-500"></i>
+                    Performance Analytics
+                  </h3>
+                  <p className="text-[11px] text-slate-400">
+                    Cumulative R profit growth computed from closed trade outcomes.
+                  </p>
+                </div>
+
+                <div className="bg-dark-card border border-dark-border rounded-xl p-3 space-y-2">
+                  <div className="text-xs font-bold text-slate-300">Equity Growth Curve</div>
+                  <div className="h-48 w-full">
+                    {LineChart ? (
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={
+                          journalTrades.slice().reverse().reduce((acc, trade, idx) => {
+                            const prevVal = acc.length > 0 ? acc[acc.length - 1].r : 0;
+                            acc.push({
+                              name: `#${idx + 1}`,
+                              r: prevVal + (trade.outcomeR || 0)
+                            });
+                            return acc;
+                          }, [{ name: 'Start', r: 0 }])
+                        }>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#1E293B" />
+                          <XAxis dataKey="name" stroke="#64748B" fontSize={10} />
+                          <YAxis stroke="#64748B" fontSize={10} />
+                          <Tooltip contentStyle={{ backgroundColor: '#121826', borderColor: '#1E293B', fontSize: '11px' }} />
+                          <Line type="monotone" dataKey="r" stroke="#D9A44A" strokeWidth={2.5} dot={{ r: 3, fill: '#D9A44A' }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    ) : (
+                      <div className="text-center py-10 text-xs text-slate-500">Loading Recharts Engine...</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-2 font-mono text-xs">
+                  <div className="bg-dark-card p-3 rounded-xl border border-dark-border space-y-1">
+                    <div className="text-[10px] text-slate-400 font-sans">TOTAL LOGGED</div>
+                    <div className="text-slate-100 font-bold text-lg">{journalTrades.length}</div>
+                  </div>
+                  <div className="bg-dark-card p-3 rounded-xl border border-dark-border space-y-1">
+                    <div className="text-[10px] text-slate-400 font-sans">WIN RATE</div>
+                    <div className="text-emerald-400 font-bold text-lg">
+                      {journalTrades.filter(t => t.status !== 'PENDING').length > 0
+                        ? `${Math.round((journalTrades.filter(t => t.status === 'WIN').length / journalTrades.filter(t => t.status !== 'PENDING').length) * 100)}%`
+                        : '0%'
+                      }
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+          </main>
+
+          {/* MOBILE BOTTOM NAVIGATION BAR */}
+          <nav className="fixed bottom-0 left-0 right-0 z-50 bg-dark-card/95 backdrop-blur border-t border-dark-border max-w-md mx-auto flex items-center justify-around py-1.5 px-1">
+            <button
+              onClick={() => setActiveTab('scan')}
+              className={`flex flex-col items-center justify-center min-w-[46px] min-h-[44px] rounded-lg text-[10px] font-medium transition ${
+                activeTab === 'scan' ? 'text-gold-500 font-bold' : 'text-slate-400'
+              }`}
+            >
+              <i data-lucide="scan-line" className="w-5 h-5 mb-0.5"></i>
+              Scan
+            </button>
+
+            <button
+              onClick={() => setActiveTab('chart')}
+              className={`flex flex-col items-center justify-center min-w-[46px] min-h-[44px] rounded-lg text-[10px] font-medium transition ${
+                activeTab === 'chart' ? 'text-gold-500 font-bold' : 'text-slate-400'
+              }`}
+            >
+              <i data-lucide="candlestick-chart" className="w-5 h-5 mb-0.5"></i>
+              Chart
+            </button>
+
+            <button
+              onClick={() => setActiveTab('risk')}
+              className={`flex flex-col items-center justify-center min-w-[46px] min-h-[44px] rounded-lg text-[10px] font-medium transition ${
+                activeTab === 'risk' ? 'text-gold-500 font-bold' : 'text-slate-400'
+              }`}
+            >
+              <i data-lucide="shield" className="w-5 h-5 mb-0.5"></i>
+              Risk
+            </button>
+
+            <button
+              onClick={() => setActiveTab('pine')}
+              className={`flex flex-col items-center justify-center min-w-[46px] min-h-[44px] rounded-lg text-[10px] font-medium transition ${
+                activeTab === 'pine' ? 'text-gold-500 font-bold' : 'text-slate-400'
+              }`}
+            >
+              <i data-lucide="code" className="w-5 h-5 mb-0.5"></i>
+              Pine
+            </button>
+
+            <button
+              onClick={() => setActiveTab('journal')}
+              className={`flex flex-col items-center justify-center min-w-[46px] min-h-[44px] rounded-lg text-[10px] font-medium transition ${
+                activeTab === 'journal' ? 'text-gold-500 font-bold' : 'text-slate-400'
+              }`}
+            >
+              <i data-lucide="book-marked" className="w-5 h-5 mb-0.5"></i>
+              Journal
+            </button>
+
+            <button
+              onClick={() => setActiveTab('analytics')}
+              className={`flex flex-col items-center justify-center min-w-[46px] min-h-[44px] rounded-lg text-[10px] font-medium transition ${
+                activeTab === 'analytics' ? 'text-gold-500 font-bold' : 'text-slate-400'
+              }`}
+            >
+              <i data-lucide="bar-chart-3" className="w-5 h-5 mb-0.5"></i>
+              Stats
+            </button>
+          </nav>
+
+        </div>
+      );
+    }
+
+    // Inline ServiceWorker Registration Blob for Offline Support
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        const swCode = `
+          self.addEventListener('install', e => e.waitUntil(self.skipWaiting()));
+          self.addEventListener('activate', e => e.waitUntil(self.clients.claim()));
+          self.addEventListener('fetch', e => e.respondWith(fetch(e.request).catch(() => caches.match(e.request))));
+        `;
+        const blob = new Blob([swCode], { type: 'text/javascript' });
+        navigator.serviceWorker.register(URL.createObjectURL(blob)).catch(() => {});
+      });
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />);
+  </script>
+</body>
+</html>
